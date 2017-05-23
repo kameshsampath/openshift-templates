@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: Template
+metadata:
+  name: hystrix-dashboard
+  annotations:
+    openshift.io/display-name: Hystrix Dashboard
+    description: Application containing Hystrix dashboard
+    tags: hystrix
+    iconClass: icon-shadowman
+    template.openshift.io/long-description: Application containing Hystrix dashboard
+    template.openshift.io/provider-display-name: Red Hat, Inc.
+labels:
+  template: hystrix-dashboard
+objects:
+- apiVersion: v1
+  kind: ServiceAccount
+  metadata:
+    name: hystrix-dashboard
+    labels:
+      app: hystrix-dashboard
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: hystrix-dashboard
+    labels:
+      app: hystrix-dashboard
+  spec:
+    type: LoadBalancer
+    selector:
+      app: hystrix-dashboard
+    ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8080
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    name: hystrix-dashboard
+    labels:
+      app: hystrix-dashboard
+  spec:
+    replicas: 1
+    selector:
+      app: hystrix-dashboard
+    strategy:
+      type: Rolling
+      rollingParams:
+        intervalSeconds: 1
+        maxSurge: 25%
+        maxUnavailable: 25%
+        timeoutSeconds: 600
+        updatePeriodSeconds: 1
+    template:
+      metadata:
+        labels:
+          app: hystrix-dashboard
+      spec:
+        serviceAccountName: hystrix-dashboard
+        securityContext:
+          privileged: false
+        containers:
+        - name: hystrix-dashboard
+          image: fabric8/hystrix-dashboard:1.0.28
+          imagePullPolicy: IfNotPresent
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 180
+    triggers:
+    - type: ConfigChange
+- apiVersion: v1
+  kind: Route
+  metadata:
+    name: hystrix-dashboard
+    labels:
+      project: hystrix-dashboard
+  spec:
+    to:
+      kind: Service
+      name: hystrix-dashboard
